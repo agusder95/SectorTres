@@ -6,31 +6,37 @@ import RaceCard, { container, item } from '../components/RaceCard'
 import { RaceCardSkeleton } from '../components/Skeletons'
 import { ChevronDown, Flag } from 'lucide-react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { useLoading } from '../context/LoadingContext'
 
 export default function RacesPage() {
   const currentYear = new Date().getFullYear()
-  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [selectedYear, setSelectedYear] = useLocalStorage('f1-selected-year', currentYear.toString())
   const [races, setRaces] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showYearPicker, setShowYearPicker] = useState(false)
   const [favorites, setFavorites] = useLocalStorage('f1-favorites', [])
+  const { startLoading, stopLoading } = useLoading()
+
+  const yearNum = parseInt(selectedYear)
 
   useEffect(() => {
     loadRaces()
-  }, [selectedYear])
+  }, [yearNum])
 
   const loadRaces = async () => {
     setLoading(true)
+    startLoading()
     setError(null)
     try {
-      const data = await getRaces(selectedYear)
+      const data = await getRaces(yearNum)
       setRaces(data || [])
     } catch (err) {
       setError('Error al cargar las carreras')
       console.error(err)
     } finally {
       setLoading(false)
+      stopLoading()
     }
   }
 

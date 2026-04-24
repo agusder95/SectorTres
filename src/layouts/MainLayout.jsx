@@ -6,6 +6,7 @@ import RacesPage from '../pages/RacesPage'
 import ChampionshipsPage from '../pages/ChampionshipsPage'
 import FavoritesPage from '../pages/FavoritesPage'
 import SettingsPage from '../pages/SettingsPage'
+import GPDetailsPage from '../pages/GPDetailsPage'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 
 function ThemeSync() {
@@ -15,7 +16,6 @@ function ThemeSync() {
   })
 
   useEffect(() => {
-    // Aplicar/quitar clase dark al elemento RAÍZ para Tailwind
     if (settings.theme === 'dark') {
       document.documentElement.classList.add('dark')
       document.documentElement.classList.remove('light')
@@ -39,6 +39,7 @@ export default function MainLayout() {
           <Route path="/championships" element={<ChampionshipsPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/race/:year/:round" element={<GPDetailsPage />} />
         </Routes>
       </main>
       <BottomNav />

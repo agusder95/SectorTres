@@ -25,13 +25,26 @@ export const formatTime = (utcDateString, use12h = false) => {
   })
 }
 
-// Formatear solo fecha
+// Días de la semana abreviados
+const DAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+
+// Formatear solo fecha DD/MM/YYYY
 export const formatDate = (utcDateString) => {
   const date = new Date(utcDateString)
-  return date.toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-  })
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+// Formatear fecha con día de la semana
+export const formatDateWithDay = (utcDateString) => {
+  const date = new Date(utcDateString)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  const dayName = DAYS_SHORT[date.getDay()]
+  return { date: `${day}/${month}/${year}`, dayName }
 }
 
 // Detectar si el evento ocurre en un día calendario distinto al del usuario
