@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { Clock, MapPin, Heart } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { getCircuitSVG, getCircuitName } from '../api/circuitMapper'
-import { formatDate, formatTime, isNextDay, isMadrugada, getRaceStatus } from '../utils/timeFormatter'
+import { formatDate, formatTime, isMadrugada } from '../utils/timeFormatter'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 
 const container = {
@@ -25,6 +26,7 @@ export default function RaceCard({
   isFavorite = false, 
   onToggleFavorite 
 }) {
+  const navigate = useNavigate()
   const [settings] = useLocalStorage('f1-settings', { theme: 'dark', use12h: false })
   const theme = settings.theme
   const use12h = settings.use12h
@@ -35,26 +37,31 @@ export default function RaceCard({
   
   const dateStr = formatDate(raceDate)
   const timeStr = formatTime(raceDate, use12h)
-  const nextDay = isNextDay(raceDate)
   const madrugada = isMadrugada(raceDate)
-  
-  // Determinar estado de la carrera
-  const status = getRaceStatus(race)
 
-  // Tags: Solo mostrar si corresponde
-  const showTrasnoche = nextDay || madrugada
-  const showFinalizado = status === 'finished'
-  const showLive = status === 'live' || isLive || isCurrent
+  // Determinar si la carrera ya pasó (fecha < hoy)
+  const raceDateObj = new Date(race.date)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isPastRace = raceDateObj < today
+
+  // Tags
+  const showFinalizado = isPastRace || race.status === 'Finished'
+  const showLive = isLive || isCurrent
+
+  const handleCardClick = () => {
+    navigate(`/race/${race.season}/${race.round}`)
+  }
 
   return (
     <motion.div
       variants={item}
+      onClick={handleCardClick}
       className="
-        max-w-4xl
-        relative overflow-hidden rounded-xl border
+        relative overflow-hidden rounded-xl border cursor-pointer
         bg-white dark:bg-zinc-900
         border-gray-200 dark:border-zinc-800
-        transition-all duration-300 hover:scale-[1.02]
+        transition-all duration-300 hover:scale-[1.02] hover:shadow-lg
         dark:hover:border-f1-red/30
       "
     >
@@ -80,11 +87,11 @@ export default function RaceCard({
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-f1-red to-orange-500" />
       )}
       
-      <div className="p-3 flex flex-col gap-7">
+      <div className="p-3 flex flex-col gap-2">
         {/* Header Row */}
         <div className="flex items-start gap-2">
           {/* Circuit SVG */}
-          <div className="w-24 h-24 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 p-2">
+          <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 p-2">
             {circuitSvgUrl ? (
               <img
                 src={circuitSvgUrl}
@@ -102,7 +109,7 @@ export default function RaceCard({
           {/* Info */}
           <div className="flex-1 min-w-0 pr-6">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[13px] text-gray-400 dark:text-zinc-500 font-mono">GP-{race.round}</span>
+              <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono">GP {race.round}</span>
               
               {showLive && !showFinalizado && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded border bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50">
@@ -117,11 +124,11 @@ export default function RaceCard({
               )}
             </div>
             
-            <h2 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight mt-1 line-clamp-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight mt-1 line-clamp-2">
               {race.raceName}
-            </h2>
+            </h3>
             
-            <p className="text-[13px] text-gray-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
+            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
               {circuitName}
             </p>
           </div>
@@ -131,15 +138,15 @@ export default function RaceCard({
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
           <div className="flex items-center gap-1.5">
             <Clock size={11} className="text-gray-400 dark:text-zinc-500" />
-            <span className="text-[14px] font-medium text-gray-600 dark:text-zinc-300">
+            <span className="text-[11px] font-medium text-gray-600 dark:text-zinc-300">
               {dateStr} · {timeStr}
             </span>
           </div>
           
-          {/* Trasnoche Badge - Solo si aplica (madrugada 00:00-05:00) */}
-          { madrugada &&(
+          {/* Madrugada Badge - Solo si aplica (00:00-05:00) */}
+          {madrugada && (
             <span className="px-2 py-0.5 text-[10px] font-medium rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">
-              {'Trasnoche'}
+              Trasnoche
             </span>
           )}
         </div>
