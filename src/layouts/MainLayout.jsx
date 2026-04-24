@@ -1,0 +1,47 @@
+import { useEffect } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import BottomNav from '../components/BottomNav'
+import Sidebar from '../components/Sidebar'
+import RacesPage from '../pages/RacesPage'
+import ChampionshipsPage from '../pages/ChampionshipsPage'
+import FavoritesPage from '../pages/FavoritesPage'
+import SettingsPage from '../pages/SettingsPage'
+import { useLocalStorage } from '../hooks/useLocalStorage'
+
+function ThemeSync() {
+  const [settings] = useLocalStorage('f1-settings', {
+    theme: 'dark',
+    use12h: false,
+  })
+
+  useEffect(() => {
+    // Aplicar/quitar clase dark al elemento RAÍZ para Tailwind
+    if (settings.theme === 'dark') {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    } else {
+      document.documentElement.classList.remove('dark')
+      document.documentElement.classList.add('light')
+    }
+  }, [settings.theme])
+
+  return null
+}
+
+export default function MainLayout() {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-f1-dark text-gray-900 dark:text-white pb-20 md:pb-0 md:pl-64 transition-colors duration-300">
+      <ThemeSync />
+      <Sidebar />
+      <main className="px-4 py-4">
+        <Routes>
+          <Route path="/" element={<RacesPage />} />
+          <Route path="/championships" element={<ChampionshipsPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </main>
+      <BottomNav />
+    </div>
+  )
+}
