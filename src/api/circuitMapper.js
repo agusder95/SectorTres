@@ -20,7 +20,7 @@ const CIRCUIT_MAP = {
   "vegas": "las-vegas-1.svg",
   "losail": "lusail-1.svg",
   "qatar": "lusail-1.svg",
-  "madrid": "madring-1.svg",
+  "madring": "madring-1.svg",
   "ifema": "madring-1.svg",
   "marina_bay": "marina-bay-4.svg",
   "miami": "miami-1.svg",
@@ -34,7 +34,8 @@ const CIRCUIT_MAP = {
   "spa": "spa-francorchamps-4.svg",
   "suzuka": "suzuka-2.svg",
   "yas_marina": "yas-marina-2.svg",
-  "zandvoort": "zandvoort.svg",
+  "zandvoort": "zandvoort-5.svg",
+  "rodriguez": "mexico-city-3.svg",
 }
 
 // Nombres legibles de circuitos

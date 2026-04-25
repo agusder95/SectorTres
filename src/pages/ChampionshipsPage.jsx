@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, Award } from 'lucide-react'
 import { getDriverStandings, getConstructorStandings } from '../api/f1Service'
-import { TEAM_COLORS } from '../constants'
+import {getTeamColor, TEAM_COLORS} from '../constants'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { StandingsSkeleton } from '../components/Skeletons'
-import { useLoading } from '../context/LoadingContext'
+import { useLoading, useSeason } from '../context/LoadingContext'
 
 const PODIUM_COLORS = {
   1: { bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', text: 'text-yellow-500' },      // Oro
@@ -13,18 +13,6 @@ const PODIUM_COLORS = {
   3: { bg: 'bg-orange-700/20', border: 'border-orange-700/50', text: 'text-orange-700' },        // Bronce
 }
 
-const CONSTRUCTOR_COLORS = {
-  mercedes: '#27f1d0',
-  red_bull: '#1e41ff',
-  ferrari: '#ff0000',
-  mclaren: '#ff8700',
-  aston_martin: '#006f62',
-  alpine: '#0072b3',
-  alpha_tauri: '#469bff',
-  williams: '#64c4ff',
-  haas: '#ffffff',
-  kick_sauber: '#52e252',
-}
 
 function DriverStandings({ standings, loading }) {
   const [settings] = useLocalStorage('f1-settings', { theme: 'dark' })
@@ -42,8 +30,7 @@ function DriverStandings({ standings, loading }) {
       {standings.DriverStandings.map((driver, index) => {
         const pos = index + 1
         const podiumColors = PODIUM_COLORS[pos]
-        const teamColor = TEAM_COLORS[driver.Constructors?.[0]?.name?.toLowerCase().replace(/\s+/g, '_')] || '#888'
-
+        const teamColor = getTeamColor(driver.Constructors?.[0]?.constructorId)
         return (
           <motion.div
             key={driver.Driver.driverId}
@@ -81,18 +68,19 @@ function DriverStandings({ standings, loading }) {
               </p>
             </div>
 
+            {/* Wins indicator */}
+            {parseInt(driver.wins) > 0 && (
+                <div className="px-2 py-1 rounded bg-f1-red/10">
+                  <span className="text-xs font-bold text-f1-red">{driver.wins}V</span>
+                </div>
+            )}
+
             {/* Points */}
             <div className="text-right">
               <span className="text-xl font-bold text-f1-red">{driver.points}</span>
               <p className="text-[10px] text-gray-400 dark:text-zinc-500">PTS</p>
             </div>
 
-            {/* Wins indicator */}
-            {parseInt(driver.wins) > 0 && (
-              <div className="px-2 py-1 rounded bg-f1-red/10">
-                <span className="text-xs font-bold text-f1-red">{driver.wins}V</span>
-              </div>
-            )}
           </motion.div>
         )
       })}
@@ -114,8 +102,7 @@ function ConstructorStandings({ standings, loading }) {
       {standings.ConstructorStandings.map((constructor, index) => {
         const pos = index + 1
         const podiumColors = PODIUM_COLORS[pos]
-        const teamName = constructor.Constructor.name?.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z_]/g, '')
-        const teamColor = CONSTRUCTOR_COLORS[teamName] || '#888'
+        const teamColor = getTeamColor(constructor.Constructor.constructorId)
 
         return (
           <motion.div
@@ -150,18 +137,19 @@ function ConstructorStandings({ standings, loading }) {
               </span>
             </div>
 
+            {/* Wins indicator */}
+            {parseInt(constructor.wins) > 0 && (
+                <div className="px-2 py-1 rounded bg-f1-red/10">
+                  <span className="text-xs font-bold text-f1-red">{constructor.wins}V</span>
+                </div>
+            )}
+
             {/* Points */}
             <div className="text-right">
               <span className="text-xl font-bold text-f1-red">{constructor.points}</span>
               <p className="text-[10px] text-gray-400 dark:text-zinc-500">PTS</p>
             </div>
 
-            {/* Wins indicator */}
-            {parseInt(constructor.wins) > 0 && (
-              <div className="px-2 py-1 rounded bg-f1-red/10">
-                <span className="text-xs font-bold text-f1-red">{constructor.wins}V</span>
-              </div>
-            )}
           </motion.div>
         )
       })}
@@ -170,25 +158,26 @@ function ConstructorStandings({ standings, loading }) {
 }
 
 export default function ChampionshipsPage() {
-  const currentYear = new Date().getFullYear()
+  const { selectedYear, setSelectedYear } = useSeason()
   const [activeTab, setActiveTab] = useState('drivers')
   const [driverStandings, setDriverStandings] = useState(null)
   const [constructorStandings, setConstructorStandings] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedYear, setSelectedYear] = useState(currentYear)
   const { startLoading, stopLoading } = useLoading()
+  const [showYearPicker, setShowYearPicker] = useState(false)
+  const yearNum = parseInt(selectedYear)
 
   useEffect(() => {
     loadStandings()
-  }, [selectedYear])
+  }, [yearNum])
 
   const loadStandings = async () => {
     setLoading(true)
     startLoading()
     try {
       const [drivers, constructors] = await Promise.all([
-        getDriverStandings(selectedYear),
-        getConstructorStandings(selectedYear)
+        getDriverStandings(yearNum),
+        getConstructorStandings(yearNum)
       ])
       setDriverStandings(drivers)
       setConstructorStandings(constructors)
@@ -205,6 +194,8 @@ export default function ChampionshipsPage() {
     { id: 'constructors', label: 'Constructores', icon: Trophy },
   ]
 
+  const yearOptions = [2026, 2025, 2024, 2023, 2022, 2021]
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -215,15 +206,52 @@ export default function ChampionshipsPage() {
         </h1>
         
         {/* Season selector */}
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-          className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-white text-sm"
-        >
-          {[2026, 2025, 2024, 2023].map(year => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <button
+              onClick={() => setShowYearPicker(!showYearPicker)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+          >
+            <span className="font-semibold text-gray-700 dark:text-white">{selectedYear}</span>
+            <svg
+                size={16}
+                className={`text-gray-500 dark:text-white/60 transition-transform ${showYearPicker ? 'rotate-180' : ''}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          {showYearPicker && (
+              <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 top-full mt-2 w-28 rounded-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-xl z-50 overflow-hidden"
+              >
+                {yearOptions.map(year => (
+                    <button
+                        key={year}
+                        onClick={() => {
+                          setSelectedYear(year)
+                          setShowYearPicker(false)
+                        }}
+                        className={`
+                    w-full px-4 py-2 text-left transition-colors
+                    ${year === parseInt(selectedYear)
+                            ? 'text-f1-red font-semibold bg-f1-red/5'
+                            : 'text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800'
+                        }`
+                        }
+                    >
+                      {year}
+                    </button>
+                ))}
+              </motion.div>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

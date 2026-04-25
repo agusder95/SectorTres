@@ -158,6 +158,7 @@ export default function SettingsPage() {
       <div className="text-center text-gray-400 dark:text-white/30 text-sm transition-colors duration-300">
         <p>SectorTres v1.0.0</p>
         <p className="mt-1">Datos de F1 © Jolpi API</p>
+        <p className="mt-1">Circuitos julesr0y</p>
       </div>
     </div>
   )
