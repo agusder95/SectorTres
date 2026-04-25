@@ -4,6 +4,7 @@ import BottomNav from '../components/BottomNav'
 import Sidebar from '../components/Sidebar'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
+import PwaBanner from '../components/PwaBanner'
 import RacesPage from '../pages/RacesPage'
 import ChampionshipsPage from '../pages/ChampionshipsPage'
 import FavoritesPage from '../pages/FavoritesPage'
@@ -36,6 +37,7 @@ export default function MainLayout() {
       <ThemeSync />
       <Header />
       <Sidebar />
+      <PwaBanner />
       <main className="px-4 py-4 pt-4 md:pt-4 min-h-screen">
         <Routes>
           <Route path="/" element={<RacesPage />} />
