@@ -58,6 +58,7 @@ export default function RaceCard({
       variants={item}
       onClick={handleCardClick}
       className="
+        max-w-4xl
         relative overflow-hidden rounded-xl border cursor-pointer
         bg-white dark:bg-zinc-900
         border-gray-200 dark:border-zinc-800
@@ -87,11 +88,11 @@ export default function RaceCard({
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-f1-red to-orange-500" />
       )}
       
-      <div className="p-3 flex flex-col gap-2">
+      <div className="p-3 flex flex-col gap-7">
         {/* Header Row */}
         <div className="flex items-start gap-2">
           {/* Circuit SVG */}
-          <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 p-2">
+          <div className="w-24 h-24 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 p-2">
             {circuitSvgUrl ? (
               <img
                 src={circuitSvgUrl}
@@ -107,9 +108,9 @@ export default function RaceCard({
           </div>
           
           {/* Info */}
-          <div className="flex-1 min-w-0 pr-6">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono">GP {race.round}</span>
+          <div className="flex-1 min-w-0 pr-3">
+            <div className="flex flex-wrap items-center gap-5">
+              <span className="text-[13px] text-gray-400 dark:text-zinc-500 font-mono">GP-{race.round}</span>
               
               {showLive && !showFinalizado && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded border bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50">
@@ -124,11 +125,11 @@ export default function RaceCard({
               )}
             </div>
             
-            <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight mt-1 line-clamp-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white text-s leading-tight mt-3 line-clamp-2">
               {race.raceName}
             </h3>
             
-            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
+            <p className="text-[14px] text-gray-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
               {circuitName}
             </p>
           </div>
@@ -138,7 +139,7 @@ export default function RaceCard({
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
           <div className="flex items-center gap-1.5">
             <Clock size={11} className="text-gray-400 dark:text-zinc-500" />
-            <span className="text-[11px] font-medium text-gray-600 dark:text-zinc-300">
+            <span className="text-[13px] font-medium text-gray-600 dark:text-zinc-300">
               {dateStr} · {timeStr}
             </span>
           </div>

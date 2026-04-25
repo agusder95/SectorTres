@@ -4,13 +4,16 @@ import { useLocalStorage } from '../hooks/useLocalStorage'
 import RaceCard from '../components/RaceCard'
 import { RaceCardSkeleton } from '../components/Skeletons'
 import { getRaces } from '../api/f1Service'
-import { useLoading } from '../context/LoadingContext'
+import { useLoading, useSeason } from '../context/LoadingContext'
+import ConfirmModal from '../components/ConfirmModal'
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useLocalStorage('f1-favorites', [])
   const [favoriteRaces, setFavoriteRaces] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
   const { startLoading, stopLoading } = useLoading()
+  const { selectedYear } = useSeason()
 
   useEffect(() => {
     loadFavoriteRaces()
@@ -26,8 +29,7 @@ export default function FavoritesPage() {
     setLoading(true)
     startLoading()
     try {
-      const currentYear = new Date().getFullYear()
-      const allRaces = await getRaces(currentYear)
+      const allRaces = await getRaces(selectedYear)
       
       const matched = favorites.map(fav => {
         return allRaces.find(r => 
@@ -66,9 +68,12 @@ export default function FavoritesPage() {
   }
 
   const clearAllFavorites = () => {
-    if (window.confirm('¿Eliminar todos los favoritos?')) {
-      setFavorites([])
-    }
+    setShowModal(true)
+  }
+
+  const handleConfirmClear = () => {
+    setFavorites([])
+    setShowModal(false)
   }
 
   return (
@@ -115,7 +120,7 @@ export default function FavoritesPage() {
 
       {/* Favorite Races */}
       {!loading && favoriteRaces.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className=" flex flex-col gap-4">
           {favoriteRaces.map((race, index) => (
             <RaceCard
               key={`${race.season}-${race.round}`}
@@ -127,6 +132,14 @@ export default function FavoritesPage() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleConfirmClear}
+        title="¿Eliminar todos los favoritos?"
+        message="Podrás volver a agregarlos cuando quieras"
+      />
     </div>
   )
 }

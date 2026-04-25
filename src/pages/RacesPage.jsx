@@ -1,16 +1,14 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { getRaces } from '../api/f1Service'
-import { SEASON_YEARS } from '../constants'
 import RaceCard, { container, item } from '../components/RaceCard'
 import { RaceCardSkeleton } from '../components/Skeletons'
-import { ChevronDown, Flag } from 'lucide-react'
+import { Flag } from 'lucide-react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { useLoading } from '../context/LoadingContext'
+import { useLoading, useSeason } from '../context/LoadingContext'
 
 export default function RacesPage() {
-  const currentYear = new Date().getFullYear()
-  const [selectedYear, setSelectedYear] = useLocalStorage('f1-selected-year', currentYear.toString())
+  const { selectedYear, setSelectedYear } = useSeason()
   const [races, setRaces] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -74,6 +72,8 @@ export default function RacesPage() {
     return favorites.some(f => f.round === race.round && f.season === race.season)
   }
 
+  const yearOptions = [2026, 2025, 2024, 2023, 2022, 2021]
+
   return (
     <div className="space-y-4">
       {/* Header con selector de año */}
@@ -89,38 +89,45 @@ export default function RacesPage() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
           >
             <span className="font-semibold text-gray-700 dark:text-white">{selectedYear}</span>
-            <ChevronDown size={16} className={`text-gray-500 dark:text-white/60 transition-transform ${showYearPicker ? 'rotate-180' : ''}`} />
+            <svg 
+              size={16} 
+              className={`text-gray-500 dark:text-white/60 transition-transform ${showYearPicker ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </button>
           
-          <AnimatePresence>
-            {showYearPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute right-0 top-full mt-2 w-28 rounded-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-xl z-50 overflow-hidden"
-              >
-                {SEASON_YEARS.map(year => (
-                  <button
-                    key={year}
-                    onClick={() => {
-                      setSelectedYear(year)
-                      setShowYearPicker(false)
-                    }}
-                    className={`
-                      w-full px-4 py-2 text-left transition-colors
-                      ${year === selectedYear 
-                        ? 'text-f1-red font-semibold bg-f1-red/5' 
-                        : 'text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800'
-                      }`
-                    }
-                  >
-                    {year}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {showYearPicker && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 top-full mt-2 w-28 rounded-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-xl z-50 overflow-hidden"
+            >
+              {yearOptions.map(year => (
+                <button
+                  key={year}
+                  onClick={() => {
+                    setSelectedYear(year)
+                    setShowYearPicker(false)
+                  }}
+                  className={`
+                    w-full px-4 py-2 text-left transition-colors
+                    ${year === parseInt(selectedYear) 
+                      ? 'text-f1-red font-semibold bg-f1-red/5' 
+                      : 'text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800'
+                    }`
+                  }
+                >
+                  {year}
+                </button>
+              ))}
+            </motion.div>
+          )}
         </div>
       </div>
 

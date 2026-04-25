@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import BottomNav from '../components/BottomNav'
 import Sidebar from '../components/Sidebar'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
 import RacesPage from '../pages/RacesPage'
 import ChampionshipsPage from '../pages/ChampionshipsPage'
 import FavoritesPage from '../pages/FavoritesPage'
@@ -32,8 +34,9 @@ export default function MainLayout() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-f1-dark text-gray-900 dark:text-white pb-20 md:pb-0 md:pl-64 transition-colors duration-300">
       <ThemeSync />
+      <Header />
       <Sidebar />
-      <main className="px-4 py-4">
+      <main className="px-4 py-4 pt-4 md:pt-4 min-h-screen">
         <Routes>
           <Route path="/" element={<RacesPage />} />
           <Route path="/championships" element={<ChampionshipsPage />} />
@@ -42,6 +45,7 @@ export default function MainLayout() {
           <Route path="/race/:year/:round" element={<GPDetailsPage />} />
         </Routes>
       </main>
+      <Footer />
       <BottomNav />
     </div>
   )

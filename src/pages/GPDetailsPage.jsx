@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import {useParams, useNavigate, NavLink} from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Clock, Flag, MapPin } from 'lucide-react'
+import {ArrowLeft, Clock, Flag, MapPin, MapPinned, Road} from 'lucide-react'
 import { getRaceInfo, getRaceResults, getQualifying, getSprintResults } from '../api/f1Service'
 import { getCircuitSVG, getCircuitName } from '../api/circuitMapper'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { Skeleton } from '../components/Skeletons'
 import { getTeamColor } from '../constants'
 import { useLoading } from '../context/LoadingContext'
-import { formatDateWithDay, formatTime } from '../utils/timeFormatter'
+import {formatDate, formatDateWithDay, formatTime, isMadrugada} from '../utils/timeFormatter'
 
-function ScheduleTab({ race }) {
+function ScheduleTab({ race, use12h }) {
   if (!race) return <div className="p-4 text-gray-500 dark:text-zinc-400">Sin datos</div>
 
   const sessions = []
@@ -34,9 +34,11 @@ function ScheduleTab({ race }) {
   return (
     <div className="space-y-2">
       {sessions.map((session) => {
+        const gpDate = session.date + 'T' + (session.time || '00:00:00Z')
+
+        const timeStr = formatTime(gpDate, use12h)
         const { date: formattedDate, dayName } = formatDateWithDay(session.date)
-        const timeStr = session.time?.substring(0, 5) || 'TBD'
-        
+        const morning = isMadrugada(gpDate)
         return (
           <div key={session.key} className={`flex items-center justify-between p-3 rounded-xl ${session.isRace ? 'bg-f1-red/10 border border-f1-red/30' : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800'}`}>
             <div className="flex items-center gap-3">
@@ -46,6 +48,13 @@ function ScheduleTab({ race }) {
               <p className="text-sm font-medium text-gray-900 dark:text-white">
                 {formattedDate} · {dayName} - {timeStr}
               </p>
+
+            {/* Madrugada Badge - Solo si aplica (00:00-05:00) */}
+            {morning && (
+                <span className="px-2 py-0.5 text-[10px] font-medium rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              T
+            </span>
+            )}
             </div>
             <Clock size={16} className="text-gray-400 dark:text-zinc-500" />
           </div>
@@ -82,8 +91,8 @@ function ResultRow({ result, index, showFL = false, showTime = false }) {
       </span>
       
       {/* Nombre */}
-      <span className="flex-1 text-xs text-gray-900 dark:text-white truncate">
-        {driver.familyName}
+      <span className="flex-1 text-s text-gray-900 dark:text-white truncate">
+        {driver.givenName} {driver.familyName}
       </span>
       
       {/* Constructor - solo en desktop */}
@@ -106,298 +115,163 @@ function ResultRow({ result, index, showFL = false, showTime = false }) {
 
 // ===== TIMES TAB =====
 function TimesTab({ year, round }) {
-  const [raceResults, setRaceResults] = useState(null)
-  const [qualy, setQualy] = useState(null)
-  const [sprintResults, setSprintResults] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [raceResults, setRaceResults] = useState(null);
+  const [qualy, setQualy] = useState(null);
+  const [sprintResults, setSprintResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { startLoading, stopLoading } = useLoading();
 
-  useEffect(() => { loadAllData() }, [year, round])
+  useEffect(() => {
+    loadAllData();
+  }, [year, round]);
 
   const loadAllData = async () => {
-    setLoading(true)
+    setLoading(true);
+    startLoading(); // Activa el semáforo de luces
     try {
       const [race, q, sprint] = await Promise.all([
         getRaceResults(year, round).catch(() => null),
         getQualifying(year, round).catch(() => null),
         getSprintResults(year, round).catch(() => null)
-      ])
-      setRaceResults(race)
-      setQualy(q)
-      setSprintResults(sprint)
+      ]);
+      setRaceResults(race);
+      setQualy(q);
+      setSprintResults(sprint);
     } catch (err) {
-      console.error('Error loading times:', err)
+      console.error('Error al cargar tiempos:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
+      stopLoading(); // Apaga el semáforo
     }
-  }
+  };
 
-  if (loading) return <div className="space-y-2"><Skeleton count={5} /></div>
+  // Si está cargando, retornamos null para que el LoadingOverlay sea el protagonista
+  if (loading) return null;
 
-  // Extraer datos
-  const raceData = raceResults?.Results || []
-  const qualyData = qualy?.QualifyingResults || []
-  const sprintData = sprintResults?.SprintResults || []
+  const raceData = raceResults?.Results || [];
+  const qualyData = qualy?.QualifyingResults || [];
+  const sprintData = sprintResults?.SprintResults || [];
 
   if (!raceData.length && !qualyData.length && !sprintData.length) {
-    return <div className="text-center py-12"><p className="text-gray-500 dark:text-zinc-400">Sin tiempos por ahora</p></div>
+    return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-zinc-400 font-medium">Sin tiempos cargados para este GP</p>
+        </div>
+    );
   }
 
-  // Cálculo matemático de cortes para Qualy
-  const N = qualyData.length
-  const Q3_CUT = 10  // Siempre 10 pilotos en Q3
-  const eliminatedQ1 = Math.round((N - Q3_CUT) / 2)
-  const Q2_CUT = Q3_CUT + eliminatedQ1  // Posición donde termina Q2
-  const q3DividerIdx = Q3_CUT - 1  // Índice 9 (posición 10)
-  const q2DividerIdx = Q2_CUT - 1  // Índice calculado dinámicamente
+  // Helper para renderizar grillas (Carrera, Qualy, Sprint)
+  const renderGrid = (title, results, isQualy = false, accentColor = '#e10600', isSprintQualy = false) => {
+    if (!results?.length) return null;
 
-  // Renderizar grilla con divisores (para qualy normal y qualy sprint)
-  const renderGrid = (title, results, dividerIdx1, dividerIdx2, accentColor, showDividers = true) => {
-    if (!results?.length) return null
+    // Lógica matemática para cortes de Qualy (Solo si es Qualy)
+    const N = results.length;
+    const q3Idx = 9; // Después de P10
+    const q2Idx = 9 + Math.floor((N - 10) / 2); // Fórmula: Q3 + (Resto / 2)
 
     return (
-      <div className="mb-6">
-        <h4 className="text-xs font-bold uppercase mb-2 px-1" style={{ color: accentColor }}>{title}</h4>
-        <div className="rounded-xl border border-gray-200 dark:border-zinc-800 overflow-hidden">
-          {results.map((result, idx) => {
-            const driver = result.Driver || {}
-            const constructor = result.Constructor || {}
-            const teamColor = getTeamColor(constructor.constructorId)
-            const isEven = idx % 2 === 0
-            const isLastRow = idx === results.length - 1
-            const showDivider1 = showDividers && idx === dividerIdx1 && !isLastRow
-            const showDivider2 = showDividers && idx === dividerIdx2 && idx < dividerIdx1 && !isLastRow
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <div className="w-1 h-4 rounded-full" style={{ backgroundColor: accentColor }} />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white">
+              {title}
+            </h4>
+          </div>
 
-            return (
-              <div key={result.position || result.grid || idx}>
-                <div className={`
-                  flex items-center gap-2 px-2 py-1.5
-                  ${isEven ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50 dark:bg-zinc-800/40'}
-                  border-l-4
+          <div className="rounded-xl border border-gray-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+            {results.map((result, idx) => {
+              const driver = result.Driver || {};
+              const constructor = result.Constructor || {};
+              const teamColor = getTeamColor(constructor.constructorId);
+              const isFL = result.FastestLap?.rank === "1";
+              const isLast = idx === results.length - 1;
+
+              // Posición: Usamos 'grid' para la Qualy de Sprint, sino 'position'
+              const pos = isSprintQualy ? (result.grid || idx + 1) : result.position;
+
+              // Renderizado de líneas divisorias en Qualy
+              const showQ3Line = isQualy && idx === q3Idx && !isLast;
+              const showQ2Line = isQualy && idx === q2Idx && !isLast;
+
+              return (
+                  <div key={idx}>
+                    <div className={`
+                  flex items-center gap-5 px-3 py-3
+                  ${idx % 2 === 0 ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-400/10 dark:bg-zinc-700/50'}
+                  border-l-[8px] transition-colors
                 `} style={{ borderLeftColor: teamColor }}>
-                  <span className="w-6 text-center font-mono text-xs font-bold text-gray-500 dark:text-zinc-500">
-                    {result.position}
+
+                      {/* Posición */}
+                      <span className="w-5 text-center font-mono text-xs font-bold text-gray-400 dark:text-zinc-500">
+                    {pos}
                   </span>
-                  <span className="w-8 font-mono text-xs font-bold text-gray-700 dark:text-white truncate">
-                    {driver.code || driver.permanentNumber || ''}
+
+                      {/* CODE Piloto */}
+                      <span className="w-10 font-mono text-sm font-black text-gray-800 dark:text-white">
+                    {driver.code}
                   </span>
-                  <span className="flex-1 text-xs text-gray-900 dark:text-white truncate">
-                    {driver.familyName}
-                  </span>
-                  <span className="hidden sm:block w-20 text-[10px] text-gray-500 dark:text-zinc-400 truncate">
-                    {constructor.name?.split(' ')[0] || ''}
-                  </span>
-                </div>
-                {showDivider1 && <div className="h-px bg-red-600/60 mx-2" />}
-                {showDivider2 && <div className="h-px bg-red-600/40 mx-2" />}
-              </div>
-            )
-          })}
+
+                      {/* Nombre y Team */}
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-gray-900 dark:text-zinc-100 truncate font-light">
+                      {driver.givenName} <b className={"text-s font-bold"}>{driver.familyName}</b>
+                    </span>
+                        <span className="hidden sm:block text-[10px] text-gray-400 dark:text-zinc-500 uppercase tracking-tighter">
+                      {constructor.name}
+                    </span>
+                      </div>
+
+                      {/* Fastest Lap Indicator */}
+                      {isFL && (
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/20">
+                      FL
+                    </span>
+                      )}
+
+                      {/* Tiempo (Solo si no es Qualy) */}
+                      {!isQualy && (
+                          <span className="w-20 text-right font-mono text-xs font-medium text-gray-600 dark:text-zinc-400">
+                      {result.Time?.time || result.status || '--'}
+                    </span>
+                      )}
+                    </div>
+
+                    {/* Línea divisoria roja de Qualy */}
+                    {(showQ3Line || showQ2Line) && (
+                        <div className="h-[2px] w-full bg-red-600/60 shadow-[0_0_8px_rgba(225,6,0,0.4)]" />
+                    )}
+                  </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    )
-  }
-
-  // Renderizar grilla de Sprint Qualy (usa campo grid para posición)
-  const renderSprintQualyGrid = (results, N) => {
-    if (!results?.length) return null
-
-    // Ordenar por grid position
-    const sorted = [...results].sort((a, b) => parseInt(a.grid || a.position) - parseInt(b.grid || b.position))
-    
-    const Q3_CUT = 10
-    const eliminatedQ1 = Math.round((N - Q3_CUT) / 2)
-    const Q2_CUT = Q3_CUT + eliminatedQ1
-    const q3Idx = Q3_CUT - 1
-    const q2Idx = Q2_CUT - 1
-
-    return (
-      <div className="mb-6">
-        <h4 className="text-xs font-bold uppercase mb-2 px-1" style={{ color: '#10b981' }}>Clasificación Sprint</h4>
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
-          {sorted.map((result, idx) => {
-            const driver = result.Driver || {}
-            const constructor = result.Constructor || {}
-            const teamColor = getTeamColor(constructor.constructorId)
-            const isEven = idx % 2 === 0
-            const isLastRow = idx === sorted.length - 1
-            const showDivider1 = idx === q3Idx && !isLastRow
-            const showDivider2 = idx === q2Idx && idx < q3Idx && !isLastRow
-
-            return (
-              <div key={result.grid || result.position || idx}>
-                <div className={`
-                  flex items-center gap-2 px-2 py-1.5
-                  ${isEven ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50 dark:bg-zinc-800/40'}
-                  border-l-4
-                `} style={{ borderLeftColor: teamColor }}>
-                  <span className="w-6 text-center font-mono text-xs font-bold text-emerald-500">
-                    {result.grid || result.position}
-                  </span>
-                  <span className="w-8 font-mono text-xs font-bold text-gray-700 dark:text-white truncate">
-                    {driver.code || driver.permanentNumber || ''}
-                  </span>
-                  <span className="flex-1 text-xs text-gray-900 dark:text-white truncate">
-                    {driver.familyName}
-                  </span>
-                  <span className="hidden sm:block w-20 text-[10px] text-gray-500 dark:text-zinc-400 truncate">
-                    {constructor.name?.split(' ')[0] || ''}
-                  </span>
-                </div>
-                {showDivider1 && <div className="h-px bg-red-600/60 mx-2" />}
-                {showDivider2 && <div className="h-px bg-red-600/40 mx-2" />}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
+    );
+  };
 
   return (
-    <div>
-      {/* 1° Carrera Principal */}
-      {raceData.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-xs font-bold text-f1-red uppercase mb-2 px-1">Carrera</h4>
-          <div className="rounded-xl border border-f1-red/30 bg-f1-red/5 overflow-hidden">
-            {raceData.map((result, idx) => (
-              <ResultRow key={result.position} result={result} index={idx} showFL={true} showTime={true} />
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="animate-in fade-in duration-500">
+        {/* 1. Carrera Principal */}
+        {raceData.length > 0 && renderGrid('Carrera', raceData, false, '#e10600')}
 
-      {/* 2° Clasificación (Qualy) */}
-      {qualyData.length > 0 && renderGrid('Qualy', qualyData, q3DividerIdx, q2DividerIdx, '#e10600')}
+        {/* 2. Qualy Principal */}
+        {qualyData.length > 0 && renderGrid('Clasificación', qualyData, true, '#e10600')}
 
-      {/* 3° Carrera Sprint */}
-      {sprintData.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-xs font-bold uppercase mb-2 px-1" style={{ color: '#10b981' }}>Carrera Sprint</h4>
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
-            {sprintData.map((result, idx) => (
-              <ResultRow key={result.position} result={result} index={idx} showFL={true} showTime={true} />
-            ))}
-          </div>
-        </div>
-      )}
+        {/* 3. Carrera Sprint (si hay) */}
+        {sprintData.length > 0 && renderGrid('Carrera Sprint', sprintData, false, '#10b981')}
 
-      {/* 4° Clasificación Sprint (usa campo grid) */}
-      {sprintData.length > 0 && renderSprintQualyGrid(sprintData, sprintData.length)}
-    </div>
-  )
+        {/* 4. Qualy Sprint (si hay) */}
+        {sprintData.length > 0 && renderGrid(
+            'Clasificación Sprint',
+            [...sprintData].sort((a, b) => parseInt(a.grid) - parseInt(b.grid)),
+            true,
+            '#10b981',
+            true
+        )}
+      </div>
+  );
 }
 
 // ===== POINTS TAB =====
-function PointsTab({ year, round }) {
-  const [raceResults, setRaceResults] = useState(null)
-  const [sprintResults, setSprintResults] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => { loadResults() }, [year, round])
-
-  const loadResults = async () => {
-    setLoading(true)
-    try {
-      const [race, sprint] = await Promise.all([
-        getRaceResults(year, round).catch(() => null),
-        getSprintResults(year, round).catch(() => null)
-      ])
-      setRaceResults(race)
-      setSprintResults(sprint)
-    } catch (err) {
-      console.error('Error loading results:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) return <div className="space-y-2"><Skeleton count={5} /></div>
-
-  const raceData = raceResults?.Results || []
-  const sprintData = sprintResults?.SprintResults || []
-  const hasSprint = sprintData.length > 0
-
-  if (!raceData.length) {
-    return <div className="text-center py-12"><p className="text-gray-500 dark:text-zinc-400">Puntos aún no disponibles</p></div>
-  }
-
-  // Crear mapa de puntos de sprint por driverId
-  const SPRINT_PTS = [8, 7, 6, 5, 4, 3, 2, 1]
-  const sprintPtsMap = {}
-  sprintData.forEach((r, i) => {
-    if (r.Driver?.driverId && SPRINT_PTS[i]) {
-      sprintPtsMap[r.Driver.driverId] = SPRINT_PTS[i]
-    }
-  })
-
-  // Crear lista unificada de pilotos con puntos
-  const driversWithPoints = raceData
-    .filter(r => parseInt(r.points) > 0)
-    .map(r => {
-      const driver = r.Driver || {}
-      const constructor = r.Constructor || {}
-      const racePts = parseInt(r.points) || 0
-      const sprintPts = sprintPtsMap[driver.driverId] || 0
-      return {
-        ...r,
-        driver,
-        constructor,
-        racePts,
-        sprintPts,
-        totalPts: racePts + sprintPts
-      }
-    })
-    .sort((a, b) => b.totalPts - a.totalPts)
-
-  return (
-    <div className="space-y-1">
-      {driversWithPoints.map((item, idx) => {
-        const { driver, constructor, racePts, sprintPts, totalPts, position } = item
-        const teamColor = getTeamColor(constructor.constructorId)
-        const isEven = idx % 2 === 0
-        const isDNF = item.status?.includes('DNF') || item.status?.includes('DSQ')
-
-        return (
-          <div key={item.position} className={`
-            flex items-center gap-2 px-2 py-1.5 rounded-xl border-l-4
-            ${isEven ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50 dark:bg-zinc-800/40'}
-            border border-gray-200 dark:border-zinc-800
-            ${isDNF ? 'opacity-50' : ''}
-          `} style={{ borderLeftColor: teamColor }}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${parseInt(position) <= 3 ? 'bg-f1-red/10 text-f1-red' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-white'}`}>
-              {position}
-            </span>
-            
-            <span className="w-8 font-mono text-xs font-bold text-gray-700 dark:text-white truncate">
-              {driver.code || driver.permanentNumber || ''}
-            </span>
-            
-            <div className="flex-1 min-w-0">
-              <span className="text-xs text-gray-900 dark:text-white truncate block">
-                {driver.familyName}
-              </span>
-              <span className="hidden sm:inline text-[10px] text-gray-500 dark:text-zinc-500">
-                {constructor.name}
-              </span>
-            </div>
-
-            {/* Desglose de puntos */}
-            <div className="flex items-center gap-1.5">
-              {hasSprint && sprintPts > 0 && (
-                <span className="text-[10px] text-zinc-500">+{sprintPts} +{racePts}</span>
-              )}
-              <span className="text-base font-bold text-gray-900 dark:text-white">{totalPts}</span>
-            </div>
-
-            {isDNF && <span className="text-[10px] text-red-500">DNF</span>}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function GPDetailsPage() {
   const { year, round } = useParams()
   const navigate = useNavigate()
@@ -427,12 +301,18 @@ export default function GPDetailsPage() {
       stopLoading()
     }
   }
-
+  const use12h = settings.use12h
   const circuitId = race?.Circuit?.circuitId
   const circuitName = getCircuitName(circuitId)
+  const circuitLocality = race?.Circuit?.Location.locality
+  const circuitCountry = race?.Circuit?.Location?.country
   const circuitSvg = getCircuitSVG(circuitId, theme)
   const images = [{ type: 'svg', src: circuitSvg, label: 'Circuito' }]
   const tabs = [{ id: 'schedule', label: 'Horarios' }, { id: 'times', label: 'Tiempos' }, { id: 'points', label: 'Puntos' }]
+
+  const circuitDate = race?.date + 'T' + (race?.time || '00:00:00Z')
+
+  const timeStr = formatTime(circuitDate, use12h)
 
   if (loading) {
     return (
@@ -477,8 +357,9 @@ export default function GPDetailsPage() {
           <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-zinc-800 text-xs font-mono text-gray-600 dark:text-zinc-400">GP {round}</span>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{race?.raceName || 'Gran Premio'}</h1>
-        <p className="text-sm text-gray-500 dark:text-zinc-400 flex items-center gap-1 mt-1"><MapPin size={14} />{circuitName}</p>
-        <p className="text-sm text-gray-600 dark:text-zinc-300 mt-2 flex items-center gap-2"><Flag size={14} className="text-f1-red" />{race?.date} · {race?.time?.substring(0, 5) || 'TBD'}</p>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 flex items-center gap-1 mt-1"><Road size={14} />{circuitName}</p>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 flex items-center gap-1 mt-1"><MapPin size={14} />{circuitCountry} {circuitLocality}</p>
+        <p className="text-sm text-gray-600 dark:text-zinc-300 mt-2 flex items-center gap-2"><Flag size={14} className="text-f1-red" />{race?.date.split('-').reverse().join('/')} · {timeStr}</p>
       </div>
 
       <div className="flex gap-2 p-1 bg-gray-100 dark:bg-zinc-900 rounded-xl">
@@ -491,11 +372,124 @@ export default function GPDetailsPage() {
 
       <AnimatePresence mode="wait">
         <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-          {activeTab === 'schedule' && <ScheduleTab race={race} />}
+          {activeTab === 'schedule' && <ScheduleTab race={race} use12h={settings.use12h} />}
           {activeTab === 'times' && <TimesTab year={yearNum} round={roundNum} />}
           {activeTab === 'points' && <PointsTab year={yearNum} round={roundNum} />}
         </motion.div>
       </AnimatePresence>
     </div>
   )
+}
+
+function PointsTab({ year, round }) {
+  const [raceResults, setRaceResults] = useState(null)
+  const [sprintResults, setSprintResults] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { loadResults() }, [year, round])
+
+  const loadResults = async () => {
+    setLoading(true)
+    try {
+      const [race, sprint] = await Promise.all([
+        getRaceResults(year, round).catch(() => null),
+        getSprintResults(year, round).catch(() => null)
+      ])
+      setRaceResults(race)
+      setSprintResults(sprint)
+    } catch (err) {
+      console.error('Error loading results:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div className="space-y-2"><Skeleton count={5} /></div>
+
+  const raceData = raceResults?.Results || []
+  const sprintData = sprintResults?.SprintResults || []
+  const hasSprint = sprintData.length > 0
+
+  if (!raceData.length) {
+    return <div className="text-center py-12"><p className="text-gray-500 dark:text-zinc-400">Puntos aún no disponibles</p></div>
+  }
+
+  // Crear mapa de puntos de sprint por driverId
+  const SPRINT_PTS = [8, 7, 6, 5, 4, 3, 2, 1]
+  const sprintPtsMap = {}
+  sprintData.forEach((r, i) => {
+    if (r.Driver?.driverId && SPRINT_PTS[i]) {
+      sprintPtsMap[r.Driver.driverId] = SPRINT_PTS[i]
+    }
+  })
+
+  // Crear lista unificada de pilotos con puntos
+  const driversWithPoints = raceData
+      .filter(r => parseInt(r.points) > 0)
+      .map(r => {
+        const driver = r.Driver || {}
+        const constructor = r.Constructor || {}
+        const racePts = parseInt(r.points) || 0
+        const sprintPts = sprintPtsMap[driver.driverId] || 0
+        return {
+          ...r,
+          driver,
+          constructor,
+          racePts,
+          sprintPts,
+          totalPts: racePts + sprintPts
+        }
+      })
+      .sort((a, b) => b.totalPts - a.totalPts)
+
+  return (
+      <div className="space-y-1">
+        {driversWithPoints.map((item, idx) => {
+          const { driver, constructor, racePts, sprintPts, totalPts, position } = item
+          const teamColor = getTeamColor(constructor.constructorId)
+          const isEven = idx % 2 === 0
+          const isDNF = item.status?.includes('DNF') || item.status?.includes('DSQ')
+
+          return (
+              <div key={item.position} className={`
+            flex items-center h-12 gap-3 px-2 py-1.5 rounded-xl border-l-8
+            ${isEven ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-400/10 dark:bg-zinc-700/50'}
+            border border-gray-200 dark:border-zinc-800
+            ${isDNF ? 'opacity-50' : ''}
+          `} style={{ borderLeftColor: teamColor }}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${parseInt(position) <= 3 ? 'bg-f1-red/10 text-f1-red' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-white'}`}>
+              {position}
+            </span>
+
+                <span className="w-8 font-mono text-s font-bold text-gray-700 dark:text-white truncate">
+              {driver.code || driver.permanentNumber || ''}
+            </span>
+
+                <div className="flex-1 min-w-0">
+              <span className="text-sm text-gray-900 dark:text-zinc-100 truncate font-thin mr-8">
+                      {driver.givenName} <b className={"text-s font-bold"}>{driver.familyName}</b>
+              </span>
+                  <span className="hidden sm:inline text-[10px] text-gray-500 dark:text-zinc-500">
+                {constructor.name}
+              </span>
+                </div>
+
+                {/* Desglose de puntos */}
+                <div className="flex items-center gap-1.5">
+                  {hasSprint && sprintPts > 0 && (
+                      <span className="text-[12px] text-zinc-500">+{sprintPts}  +{racePts} </span>
+                  )}
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">{totalPts}</span>
+                </div>
+
+                {isDNF && <span className="text-[10px] text-red-500">DNF</span>}
+              </div>
+          )
+        })}
+      <NavLink  to={`/championships`} className="block text-center text-sm text-f1-red hover:underline mt-4">
+        <p className={"mt-8 mb-4 text-[15px]"}>Tabla Campeonato</p>
+      </NavLink>
+      </div>
+
+)
 }
