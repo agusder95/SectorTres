@@ -2,7 +2,7 @@ import {Heart} from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="w-full py-10 mt-10 border-t border-zinc-800 flex flex-col items-center justify-center">
+    <footer className="w-full pt-14 pb-10 mt-72 border-t border-zinc-800 flex flex-col items-center justify-center">
         <ul>
             <li className="flex items-center justify-center text-sm font-medium text-gray-600 mb-2">
                 <p className="text-gray-500 dark:text-zinc-600 text-sm">

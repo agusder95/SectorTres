@@ -1,137 +1,62 @@
-import { useState, useEffect } from 'react'
-import { useLocalStorage } from '../hooks/useLocalStorage'
+export const DEFAULT_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-// Formatear fecha UTC a local
-export const formatToLocal = (utcDateString, options = {}) => {
-  const date = new Date(utcDateString)
-  const defaults = {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
+const resolveTimeZone = (timeZone) => timeZone || DEFAULT_TIME_ZONE
+
+const buildDateTimeFormatter = (locale, options, timeZone) => {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: resolveTimeZone(timeZone),
+    })
+  } catch {
+    return new Intl.DateTimeFormat(locale, options)
   }
-  return date.toLocaleString(undefined, { ...defaults, ...options })
+}
+
+const getZonedHour = (date, timeZone) => {
+  const formatter = buildDateTimeFormatter('en-GB', {
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }, timeZone)
+  const parts = formatter.formatToParts(date)
+  return Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
 }
 
 // Formatear solo hora
-export const formatTime = (utcDateString, use12h = false) => {
+export const formatTime = (utcDateString, use12h = false, timeZone) => {
   const date = new Date(utcDateString)
-  return date.toLocaleTimeString(undefined, {
+  return buildDateTimeFormatter('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: use12h,
-  })
+  }, timeZone).format(date)
 }
 
-// Días de la semana abreviados
-const DAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-
 // Formatear solo fecha DD/MM/YYYY
-export const formatDate = (utcDateString) => {
+export const formatDate = (utcDateString, timeZone) => {
+  if (!utcDateString) return ''
+
+  // Si viene solo la fecha (YYYY-MM-DD), no la pasamos por Date
+  // para evitar que se desplace un día por la zona horaria.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(utcDateString)) {
+    const [year, month, day] = utcDateString.split('-')
+    return `${day}/${month}/${year}`
+  }
+
   const date = new Date(utcDateString)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
+  const formatter = buildDateTimeFormatter('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }, timeZone)
+  const [day, month, year] = formatter.format(date).split('/')
   return `${day}/${month}/${year}`
 }
 
-// Formatear fecha con día de la semana
-export const formatDateWithDay = (utcDateString) => {
-  const date = new Date(utcDateString)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-  const dayName = DAYS_SHORT[date.getDay()]
-  return { date: `${day}/${month}/${year}`, dayName }
-}
-
-// Detectar si el evento ocurre en un día calendario distinto al del usuario
-export const isNextDay = (utcDateString) => {
-  const eventDate = new Date(utcDateString)
-  const localDate = new Date()
-  
-  // Comparar fechas ignoring time
-  const eventDay = eventDate.toDateString()
-  const localDay = localDate.toDateString()
-  
-  return eventDay !== localDay
-}
-
 // Detectar si es "trasnoche" (entre 00:00 y 05:00 hora local)
-export const isMadrugada = (utcDateString) => {
+export const isMadrugada = (utcDateString, timeZone) => {
   const date = new Date(utcDateString)
-  const hour = date.getHours()
-  return hour >= 0 && hour <= 5  // 00:00 hasta 04:59
+  const hour = getZonedHour(date, timeZone)
+  return hour >= 0 && hour < 5  // 00:00 hasta 04:59
 }
 
-// Hook para detectar "trasnoche" (evento en día diferente)
-/*export const useIsNextDay = (utcDateString) => {
-  const [isNext, setIsNext] = useState(false)
-  
-  useEffect(() => {
-    if (!utcDateString) {
-      setIsNext(false)
-      return
-    }
-    
-    const checkNextDay = () => {
-      setIsNext(isNextDay(utcDateString))
-    }
-    
-    checkNextDay()
-    // Revalidar cada minuto
-    const interval = setInterval(checkNextDay, 60000)
-    return () => clearInterval(interval)
-  }, [utcDateString])
-  
-  return isNext
-}*/
-
-// Hook para formato de hora con settings del usuario
-export const useTimeFormat = () => {
-  const [settings] = useLocalStorage('f1-settings', {
-    theme: 'dark',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    use12h: false,
-  })
-  
-  return {
-    use12h: settings.use12h,
-    timezone: settings.timezone,
-  }
-}
-
-// Tiempo relativo ("Hace 2 horas", "En 3 días")
-export const getRelativeTime = (utcDateString) => {
-  const now = new Date()
-  const event = new Date(utcDateString)
-  const diff = event - now
-  const absDiff = Math.abs(diff)
-  
-  const minutes = Math.floor(absDiff / (1000 * 60))
-  const hours = Math.floor(absDiff / (1000 * 60 * 60))
-  const days = Math.floor(absDiff / (1000 * 60 * 60 * 24))
-  
-  const isPast = diff < 0
-  const suffix = isPast ? 'hace' : 'en'
-  
-  if (days > 0) return `${suffix} ${days} día${days > 1 ? 's' : ''}`
-  if (hours > 0) return `${suffix} ${hours} hora${hours > 1 ? 's' : ''}`
-  if (minutes > 0) return `${suffix} ${minutes} min`
-  return isPast ? 'ahora' : 'ahora'
-}
-
-// Estado de carrera: 'upcoming', 'live', 'finished'
-export const getRaceStatus = (race) => {
-  const now = new Date()
-  const firstPractice = race.FirstPractice?.date ? new Date(race.FirstPractice.date) : null
-  const raceDate = race.date ? new Date(race.date) : null
-  
-  if (!firstPractice || !raceDate) return 'unknown'
-  
-  if (now < firstPractice) return 'upcoming'
-  if (now >= firstPractice && now <= raceDate) return 'live'
-  return 'finished'
-}

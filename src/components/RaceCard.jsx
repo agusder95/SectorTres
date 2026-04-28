@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Clock, MapPin, Heart } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getCircuitSVG, getCircuitName } from '../api/circuitMapper'
+import { DEFAULT_TIME_ZONE } from '../constants'
 import { formatDate, formatTime, isMadrugada } from '../utils/timeFormatter'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 
@@ -20,30 +21,27 @@ const item = {
 
 export default function RaceCard({ 
   race, 
-  index, 
   isCurrent = false, 
   isLive = false, 
   isFavorite = false, 
   onToggleFavorite 
 }) {
   const navigate = useNavigate()
-  const [settings] = useLocalStorage('f1-settings', { theme: 'dark', use12h: false })
+  const [settings] = useLocalStorage('f1-settings', { theme: 'dark', use12h: false, timezone: DEFAULT_TIME_ZONE })
   const theme = settings.theme
   const use12h = settings.use12h
-  
+  const timezone = settings.timezone || DEFAULT_TIME_ZONE
+
   const circuitSvgUrl = getCircuitSVG(race.Circuit.circuitId, theme)
   const circuitName = getCircuitName(race.Circuit.circuitId)
   const raceDate = race.date + 'T' + (race.time || '00:00:00Z')
   
-  const dateStr = formatDate(raceDate)
-  const timeStr = formatTime(raceDate, use12h)
-  const madrugada = isMadrugada(raceDate)
+  const dateStr = formatDate(raceDate, timezone)
+  const timeStr = formatTime(raceDate, use12h, timezone)
+  const madrugada = isMadrugada(raceDate, timezone)
 
   // Determinar si la carrera ya pasó (fecha < hoy)
-  const raceDateObj = new Date(race.date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const isPastRace = raceDateObj < today
+  const isPastRace = new Date(raceDate) < new Date()
 
   // Tags
   const showFinalizado = isPastRace || race.status === 'Finished'

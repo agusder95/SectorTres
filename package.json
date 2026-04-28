@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "standard-version"
   },
   "dependencies": {
     "framer-motion": "^12.38.0",
@@ -16,6 +17,7 @@
     "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
+    "standard-version": "^9.5.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.10",
