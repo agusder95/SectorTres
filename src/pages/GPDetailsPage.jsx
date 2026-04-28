@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import {useParams, useNavigate, NavLink} from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import {ArrowLeft, Clock, Flag, MapPin, MapPinned, Road} from 'lucide-react'
+import {ArrowLeft, Clock, Flag, MapPin, Road} from 'lucide-react'
 import { getRaceInfo, getRaceResults, getQualifying, getSprintResults } from '../api/f1Service'
 import { getCircuitSVG, getCircuitName } from '../api/circuitMapper'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { Skeleton } from '../components/Skeletons'
-import { getTeamColor } from '../constants'
+import { DEFAULT_TIME_ZONE, getTeamColor } from '../constants'
 import { useLoading } from '../context/LoadingContext'
-import {formatDate, formatDateWithDay, formatTime, isMadrugada} from '../utils/timeFormatter'
+import { formatDate, formatTime } from '../utils/timeFormatter'
 
-function ScheduleTab({ race, use12h }) {
+function ScheduleTab({ race, use12h, timezone }) {
   if (!race) return <div className="p-4 text-gray-500 dark:text-zinc-400">Sin datos</div>
 
   const sessions = []
@@ -36,9 +36,8 @@ function ScheduleTab({ race, use12h }) {
       {sessions.map((session) => {
         const gpDate = session.date + 'T' + (session.time || '00:00:00Z')
 
-        const timeStr = formatTime(gpDate, use12h)
-        const { date: formattedDate, dayName } = formatDateWithDay(session.date)
-        const morning = isMadrugada(gpDate)
+        const timeStr = formatTime(gpDate, use12h, timezone)
+        const formattedDate = formatDate(gpDate, timezone)
         return (
           <div key={session.key} className={`flex items-center justify-between p-3 rounded-xl ${session.isRace ? 'bg-f1-red/10 border border-f1-red/30' : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800'}`}>
             <div className="flex items-center gap-3">
@@ -46,69 +45,13 @@ function ScheduleTab({ race, use12h }) {
                 {session.label}
               </span>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {formattedDate} · {dayName} - {timeStr}
+                  {formattedDate} · {timeStr}
               </p>
-
-            {/* Madrugada Badge - Solo si aplica (00:00-05:00) */}
-            {morning && (
-                <span className="px-2 py-0.5 text-[10px] font-medium rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">
-              T
-            </span>
-            )}
             </div>
             <Clock size={16} className="text-gray-400 dark:text-zinc-500" />
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// ===== HELPER: Fila con barra de equipo =====
-function ResultRow({ result, index, showFL = false, showTime = false }) {
-  const driver = result.Driver || {}
-  const constructor = result.Constructor || {}
-  const teamColor = getTeamColor(constructor.constructorId)
-  const isFL = showFL && result.FastestLap?.rank === '1'
-  const isDNF = result.status?.includes('DNF') || result.status?.includes('DSQ')
-  const isEven = index % 2 === 0
-
-  return (
-    <div className={`
-      flex items-center gap-2 px-2 py-1.5
-      ${isEven ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50 dark:bg-zinc-800/40'}
-      ${isDNF ? 'opacity-50' : ''}
-      border-l-4 transition-colors
-    `} style={{ borderLeftColor: teamColor }}>
-      {/* Posición */}
-      <span className="w-6 text-center font-mono text-xs font-bold text-gray-500 dark:text-zinc-500">
-        {result.position}
-      </span>
-      
-      {/* CODE del piloto - más visible */}
-      <span className="w-8 font-mono text-xs font-bold text-gray-700 dark:text-white truncate">
-        {driver.code || driver.permanentNumber || ''}
-      </span>
-      
-      {/* Nombre */}
-      <span className="flex-1 text-s text-gray-900 dark:text-white truncate">
-        {driver.givenName} {driver.familyName}
-      </span>
-      
-      {/* Constructor - solo en desktop */}
-      <span className="hidden sm:block w-20 text-[10px] text-gray-500 dark:text-zinc-400 truncate">
-        {constructor.name?.split(' ')[0] || ''}
-      </span>
-      
-      {/* FL */}
-      {isFL && <span className="text-[10px] font-bold text-fuchsia-500">FL</span>}
-      
-      {/* Tiempo */}
-      {showTime && (
-        <span className="w-16 text-right font-mono text-xs text-gray-600 dark:text-zinc-400">
-          {result.Time?.time || result.status || '-'}
-        </span>
-      )}
     </div>
   )
 }
@@ -214,7 +157,7 @@ function TimesTab({ year, round }) {
                       {/* Nombre y Team */}
                       <div className="flex-1 flex items-center gap-2 min-w-0">
                     <span className="text-sm text-gray-900 dark:text-zinc-100 truncate font-light">
-                      {driver.givenName} <b className={"text-s font-bold"}>{driver.familyName}</b>
+                      <b className={"text-s font-bold"}>{driver.familyName}</b> {driver.givenName}
                     </span>
                         <span className="hidden sm:block text-[10px] text-gray-400 dark:text-zinc-500 uppercase tracking-tighter">
                       {constructor.name}
@@ -275,7 +218,7 @@ function TimesTab({ year, round }) {
 export default function GPDetailsPage() {
   const { year, round } = useParams()
   const navigate = useNavigate()
-  const [settings] = useLocalStorage('f1-settings', { theme: 'dark', use12h: false })
+  const [settings] = useLocalStorage('f1-settings', { theme: 'dark', use12h: false, timezone: DEFAULT_TIME_ZONE })
   const [race, setRace] = useState(null)
   const [activeTab, setActiveTab] = useState('schedule')
   const [loading, setLoading] = useState(true)
@@ -283,6 +226,7 @@ export default function GPDetailsPage() {
   const { startLoading, stopLoading } = useLoading()
 
   const theme = settings.theme
+  const timezone = settings.timezone || DEFAULT_TIME_ZONE
   const yearNum = parseInt(year)
   const roundNum = parseInt(round)
 
@@ -310,9 +254,10 @@ export default function GPDetailsPage() {
   const images = [{ type: 'svg', src: circuitSvg, label: 'Circuito' }]
   const tabs = [{ id: 'schedule', label: 'Horarios' }, { id: 'times', label: 'Tiempos' }, { id: 'points', label: 'Puntos' }]
 
-  const circuitDate = race?.date + 'T' + (race?.time || '00:00:00Z')
+  const circuitDate = race?.date ? `${race.date}T${race?.time || '00:00:00Z'}` : null
 
-  const timeStr = formatTime(circuitDate, use12h)
+  const timeStr = circuitDate ? formatTime(circuitDate, use12h, timezone) : ''
+  const formattedDate = circuitDate ? formatDate(circuitDate, timezone) : ''
 
   if (loading) {
     return (
@@ -325,7 +270,7 @@ export default function GPDetailsPage() {
       </div>
     )
   }
-
+//bloque 1
   return (
     <div className="space-y-4">
       <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-white transition-colors">
@@ -359,7 +304,7 @@ export default function GPDetailsPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{race?.raceName || 'Gran Premio'}</h1>
         <p className="text-sm text-gray-500 dark:text-zinc-400 flex items-center gap-1 mt-1"><Road size={14} />{circuitName}</p>
         <p className="text-sm text-gray-500 dark:text-zinc-400 flex items-center gap-1 mt-1"><MapPin size={14} />{circuitCountry} {circuitLocality}</p>
-        <p className="text-sm text-gray-600 dark:text-zinc-300 mt-2 flex items-center gap-2"><Flag size={14} className="text-f1-red" />{race?.date.split('-').reverse().join('/')} · {timeStr}</p>
+        <p className="text-sm text-gray-600 dark:text-zinc-300 mt-2 flex items-center gap-2"><Flag size={14} className="text-f1-red" />{formattedDate} · {timeStr}</p>
       </div>
 
       <div className="flex gap-2 p-1 bg-gray-100 dark:bg-zinc-900 rounded-xl">
@@ -372,7 +317,7 @@ export default function GPDetailsPage() {
 
       <AnimatePresence mode="wait">
         <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-          {activeTab === 'schedule' && <ScheduleTab race={race} use12h={settings.use12h} />}
+          {activeTab === 'schedule' && <ScheduleTab race={race} use12h={settings.use12h} timezone={timezone} />}
           {activeTab === 'times' && <TimesTab year={yearNum} round={roundNum} />}
           {activeTab === 'points' && <PointsTab year={yearNum} round={roundNum} />}
         </motion.div>

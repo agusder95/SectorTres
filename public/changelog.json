@@ -1,0 +1,22 @@
+{
+  "current": {
+    "version": "1.1.0",
+    "date": "2026-04-28",
+    "changes": [
+      "Selector de zona horaria por pais.",
+      "Horarios y fechas adaptados a la franja horaria elegida.",
+      "Mejoras visuales en el selector de zonas horarias."
+    ]
+  },
+  "old:": [
+        {
+        "version": "1.0.0",
+        "date": "2026-04-26",
+        "changes": [
+            "Lanzamiento inicial de la aplicación."
+        ]
+        }
+  ]
+}
+
+

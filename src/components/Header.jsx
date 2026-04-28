@@ -1,10 +1,12 @@
 import iconB from "../assets/iconB.png"
 import iconW from "../assets/iconW.png"
+import { DEFAULT_TIME_ZONE } from '../constants'
 import {useLocalStorage} from "../hooks/useLocalStorage.js";
 export default function Header() {
     const [settings] = useLocalStorage('f1-settings',{
         theme: 'dark',
-        use12:false,
+        use12h:false,
+        timezone: DEFAULT_TIME_ZONE,
     })
     const isDark = settings.theme === 'dark'
   return (

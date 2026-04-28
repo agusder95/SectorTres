@@ -11,11 +11,13 @@ import FavoritesPage from '../pages/FavoritesPage'
 import SettingsPage from '../pages/SettingsPage'
 import GPDetailsPage from '../pages/GPDetailsPage'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { DEFAULT_TIME_ZONE } from '../constants'
 
 function ThemeSync() {
   const [settings] = useLocalStorage('f1-settings', {
     theme: 'dark',
     use12h: false,
+    timezone: DEFAULT_TIME_ZONE,
   })
 
   useEffect(() => {
