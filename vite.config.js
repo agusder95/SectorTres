@@ -6,15 +6,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      //registerType: 'auto',
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         id: '/',
         name: 'SectorTres - F1 Companion',
-        short_name: 'S3',
+        short_name: 'Sector3',
         lang: 'es',
         description: 'Tu compañero F1: horarios, resultados y estadísticas',
-        theme_color: '#E10600',
+        theme_color: '#0a0a0a',
         background_color: '#09090b',
         start_url: '/',
         scope: '/',
@@ -51,6 +53,7 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
             urlPattern: /^\/changelog\.json$/i,
