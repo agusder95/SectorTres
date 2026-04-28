@@ -1,21 +1,28 @@
 {
   "current": {
-    "version": "1.1.0",
+    "version": "1.1.1",
     "date": "2026-04-28",
     "changes": [
-      "Selector de zona horaria por pais.",
-      "Horarios y fechas adaptados a la franja horaria elegida.",
-      "Mejoras visuales en el selector de zonas horarias."
+      "Implementacion de cambios en PWA"
     ]
   },
-  "old:": [
-        {
-        "version": "1.0.0",
-        "date": "2026-04-26",
-        "changes": [
-            "Lanzamiento inicial de la aplicación."
-        ]
-        }
+  "old": [
+    {
+      "version": "1.1.0",
+      "date": "2026-04-28",
+      "changes": [
+        "Selector de zona horaria por pais.",
+        "Horarios y fechas adaptados a la franja horaria elegida.",
+        "Mejoras visuales en el selector de zonas horarias."
+      ]
+    },
+    {
+    "version": "1.0.0",
+    "date": "2026-04-26",
+    "changes": [
+        "Lanzamiento inicial de la aplicación."
+    ]
+    }
   ]
 }
 

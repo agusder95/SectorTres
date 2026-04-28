@@ -53,6 +53,13 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            urlPattern: /^\/changelog\.json$/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'changelog',
+            },
+          },
+          {
             urlPattern: /^https:\/\/api\.jolpi\.ca\/ergast\/f1\/.*\.json$/i,
             handler: 'NetworkFirst',
             options: {
