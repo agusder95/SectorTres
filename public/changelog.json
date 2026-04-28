@@ -1,12 +1,19 @@
 {
   "current": {
-    "version": "1.1.1",
+    "version": "1.1.2",
     "date": "2026-04-28",
     "changes": [
-      "Implementacion de cambios en PWA"
+      "Fix cambios en PWA"
     ]
   },
   "old": [
+    {
+      "version": "1.1.1",
+      "date": "2026-04-28",
+      "changes": [
+        "Implementacion de cambios en PWA"
+      ]
+    },
     {
       "version": "1.1.0",
       "date": "2026-04-28",
