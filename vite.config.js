@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       //registerType: 'auto',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
